@@ -1,0 +1,47 @@
+# YOLOv8n-NormAImed_DCN: Endoscopic Polyp Detection with BiFPN, GAM, and DCNv3
+# Parameters
+nc: 1  # number of classes (设为 1，专门针对息肉检测)
+scales: 
+  # [depth, width, max_channels]
+  n: [0.33, 0.25, 1024]
+
+# Backbone
+backbone:
+  # [from, repeats, module, args]
+  - [-1, 1, Conv, [64, 3, 2]]  # 0-P1/2
+  - [-1, 1, Conv, [128, 3, 2]] # 1-P2/4
+  - [-1, 3, C2f, [128, True]]  
+  - [-1, 1, Conv, [256, 3, 2]] # 3-P3/8
+  - [-1, 6, C2f, [256, True]]  # 4
+  - [-1, 1, Conv, [512, 3, 2]] # 5-P4/16
+  - [-1, 6, C2f, [512, True]]  # 6
+  - [-1, 1, Conv, [1024, 3, 2]] # 7-P5/32
+  
+  # --- 最后一层 Backbone 替换为 DCNv3，用于在最深的高级语义层提取不规则形变特征 ---
+  - [-1, 3, C2f_DCNv3, [1024, True]] # 8: Last stage of Backbone 
+  - [-1, 1, SPPF, [1024, 5]]   # 9
+  - [-1, 1, GAM_Wrapper, [1024]]      # 10: 插入 GAM 注意力机制 (End of Backbone)
+
+# Head (BiFPN Structure)
+head:
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']] # 11
+  - [[-1, 6], 1, Concat, [1]] # 12: cat backbone P4
+  
+  # --- Neck 的第一阶段融合处替换为 DCNv3，自顶向下传播动态感受野 ---
+  - [-1, 3, C2f_DCNv3, [512]] # 13: First stage of Neck
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']] # 14
+  - [[-1, 4], 1, Concat, [1]] # 15: cat backbone P3
+  - [-1, 3, C2f, [256]] # 16 (P3/8-small)
+
+  - [-1, 1, Conv, [256, 3, 2]] # 17
+  # BiFPN 跨层连接: 当前特征图(17) + 顶层下采样特征(13) + Backbone原始特征(6)
+  - [[-1, 13, 6], 1, Concat, [1]] # 18: BiFPN Concat
+  - [-1, 3, C2f, [512]] # 19 (P4/16-medium)
+
+  - [-1, 1, Conv, [512, 3, 2]] # 20
+  # BiFPN 跨层连接: 当前特征图(20) + 带有注意增强的 Backbone 深层特征(10)
+  - [[-1, 10], 1, Concat, [1]] # 21: BiFPN Concat
+  - [-1, 3, C2f, [1024]] # 22 (P5/32-large)
+
+  - [[16, 19, 22], 1, Detect, [nc]] # 23 Detect(P3, P4, P5)

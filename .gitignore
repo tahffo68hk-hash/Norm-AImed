@@ -1,0 +1,46 @@
+# Norm-AImed Open Source Gitignore (High Security)
+
+# 1. Dataset & Cache
+*.cache
+datasets/
+images/
+labels/
+Kvasir-SEG/
+YOLO_Polyp_Dataset/
+yolo_dataset/
+sessile-main-Kvasir-SEG/
+yolo data3/
+*.rar
+*.zip
+
+# 2. Training Artifacts & Logs
+runs/
+ablation_runs/*/weights/last.pt
+# Keep only the final EMA best weights as pre-trained model (if requested)
+# ablation_runs/Exp_EMA/weights/best.pt is handled via positive inclusion if needed, 
+# but usually we ignore the whole ablation_runs folder and selectively allow one.
+ablation_runs/*/
+!ablation_runs/Exp_EMA/weights/best.pt
+
+# 3. Weights & Exports
+*.onnx
+*.engine
+*.trt
+*.pt
+!ablation_runs/Exp_EMA/weights/best.pt
+!yolo26n.pt
+
+# 4. System & IDE
+__pycache__/
+*.pyc
+.DS_Store
+.vscode/
+.idea/
+.venv/
+.ipynb_checkpoints/
+
+# 5. Temporary files
+temp_configs/
+archive/
+training_results/
+Medical_Project/
